@@ -14,8 +14,8 @@ extern "C" {
 
 #define DEBUG(proc_id, args...) _DEBUG(proc_id, DEBUG_BP_DIR, ##args)
 #define INIT_BASE_VAL 0
-#define BASE_HIST_LENGTH 9
-#define BASE_PERCEPTRON_ENTRIES 170000
+#define BASE_HIST_LENGTH 7
+#define BASE_PERCEPTRON_ENTRIES 512000
 #define BASE_PERCEPTRON_HASH(addr) (addr % BASE_PERCEPTRON_ENTRIES)
 #define PERCEPTRON_THRESHOLD (float)((1.93 * BASE_HIST_LENGTH) + 14)
 
@@ -71,12 +71,12 @@ void bp_perceptron_init() {
 uns8 bp_perceptron_pred(Op* op) {
   const uns   proc_id          = op->proc_id;
   const Addr  addr             = op->oracle_info.pred_addr;
-  const uns64 hist             = op->oracle_info.pred_perceptron_global_hist;
+  const uns64 hist             = op->oracle_info.base_perceptron_global_hist;
   uns32       index            = BASE_PERCEPTRON_HASH(addr);
   const auto& perceptron_state = perceptron_hist.at(proc_id).perceptron_state_all_cores[index];
   float       prediction_score = 0.0f;
   uns64* saved_hist;
-  int x_i;
+  //int x_i;
 
   for(int i = 0; i < BASE_HIST_LENGTH; ++i) {
     int history_bit = ((hist >> i) & 0x1) ? 1 : -1;  // 1 -> +1, 0 -> -1
@@ -87,8 +87,12 @@ uns8 bp_perceptron_pred(Op* op) {
     }
     prediction_score += ((history_bit * perceptron_state.weights[i]));
   }
+
   saved_hist = &perceptron_hist.at(proc_id).global_hist;
+
+  op->oracle_info.base_perceptron_global_hist = *saved_hist;
   *saved_hist >>= 1;
+  /*
   if (op->oracle_info.dir == 1) {
     x_i = 1;
   } else if (op->oracle_info.dir == 0) {
@@ -96,11 +100,10 @@ uns8 bp_perceptron_pred(Op* op) {
   } else {
     DEBUG(proc_id, "WEIRD VALUE! %d", op->oracle_info.dir);
     x_i = 0;
-  }
+  }*/
   // Insert the newest result.
-  *saved_hist |= ((uns64)x_i << 63);
-  op->oracle_info.pred_perceptron_global_hist = *saved_hist;
-  DEBUG(proc_id, "oracle_info.dir: (%d) hist: (%s)\n", x_i, toBinaryString(*saved_hist));
+  *saved_hist |= (((uns64)op->oracle_info.dir) << 63);
+  DEBUG(proc_id, "oracle_info.dir: (%d) hist: (%s)\n", op->oracle_info.dir, toBinaryString(*saved_hist));
 
   op->base_perceptron_output = prediction_score;
   uns8 pred = (prediction_score >= 0.0f) ? 1 : 0;
@@ -110,7 +113,7 @@ uns8 bp_perceptron_pred(Op* op) {
 void bp_perceptron_update(Op* op) {
   const uns   proc_id          = op->proc_id;
   const Addr  addr             = op->oracle_info.pred_addr;
-  const uns64 hist             = op->oracle_info.pred_perceptron_global_hist;
+  const uns64 hist             = op->oracle_info.base_perceptron_global_hist;
   uns64       index            = BASE_PERCEPTRON_HASH(addr);
   auto&     perceptron_state   = perceptron_hist.at(proc_id).perceptron_state_all_cores[index];
   const uns8 actual_result     = op->oracle_info.dir;
@@ -121,6 +124,7 @@ void bp_perceptron_update(Op* op) {
     // If op is not a conditional branch, we do not interact with perceptron.
     return;
   }
+
   if(actual_result == 1)
     t = 1;
   else
@@ -138,6 +142,10 @@ void bp_perceptron_update(Op* op) {
         continue;
       }
       perceptron_state.weights[i] += history_bit * t;
+      if ((perceptron_state.weights[i] >= PERCEPTRON_THRESHOLD) || (perceptron_state.weights[i] <= -PERCEPTRON_THRESHOLD)) {
+        perceptron_state.weights[i] = PERCEPTRON_THRESHOLD;
+      }
+      DEBUG(proc_id, "perceptron_state.weight[%d]: %f", i, perceptron_state.weights[i]);
     }
   }
 }
