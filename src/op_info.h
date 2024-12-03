@@ -117,7 +117,8 @@ struct Op_Info_struct {
   uns32 pred_global_hist;  // global history used to predict the branch
   Flag recover_at_decode;  // op will schedule recovery at decode
   Flag recover_at_exec;    // op will schedule recovery at exec
-
+  uns64 base_perceptron_global_hist;  // Only for OUR CUSTOM perceptron, global history
+                                      // used to predict the branch.
   uns64 pred_perceptron_global_hist;  // Only for perceptron, global history
                                       // used to predict the branch
   uns64 pred_conf_perceptron_global_hist;  // Only for perceptron, global
