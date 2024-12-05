@@ -29,7 +29,6 @@ struct perceptron_State {
 };
 
 struct hist_perceptron_table {
-  uns64 global_hist = 0;
   std::vector<perceptron_State> perceptron_state_all_cores;
 };
 std::vector<hist_perceptron_table> perceptron_hist;
@@ -71,15 +70,14 @@ void bp_perceptron_init() {
 uns8 bp_perceptron_pred(Op* op) {
   const uns   proc_id          = op->proc_id;
   const Addr  addr             = op->oracle_info.pred_addr;
-  const uns64 hist             = op->oracle_info.base_perceptron_global_hist;
+  const uns32 hist             = op->oracle_info.pred_global_hist;
   uns32       index            = BASE_PERCEPTRON_HASH(addr);
   const auto& perceptron_state = perceptron_hist.at(proc_id).perceptron_state_all_cores[index];
   float       prediction_score = 0.0f;
-  uns64* saved_hist;
   //int x_i;
 
   for(int i = 0; i < BASE_HIST_LENGTH; ++i) {
-    int history_bit = ((hist >> i) & 0x1) ? 1 : -1;  // 1 -> +1, 0 -> -1
+    int history_bit = ((hist >> (32 - i)) & 0x1) ? 1 : -1;  // 1 -> +1, 0 -> -1
     // Bias weight is just the weight.
     if (i == 0) {
       prediction_score += perceptron_state.weights[i];
@@ -87,24 +85,6 @@ uns8 bp_perceptron_pred(Op* op) {
     }
     prediction_score += ((history_bit * perceptron_state.weights[i]));
   }
-
-  saved_hist = &perceptron_hist.at(proc_id).global_hist;
-
-  op->oracle_info.base_perceptron_global_hist = *saved_hist;
-  *saved_hist >>= 1;
-  /*
-  if (op->oracle_info.dir == 1) {
-    x_i = 1;
-  } else if (op->oracle_info.dir == 0) {
-    x_i = 0;
-  } else {
-    DEBUG(proc_id, "WEIRD VALUE! %d", op->oracle_info.dir);
-    x_i = 0;
-  }*/
-  // Insert the newest result.
-  *saved_hist |= (((uns64)op->oracle_info.dir) << 63);
-  DEBUG(proc_id, "oracle_info.dir: (%d) hist: (%s)\n", op->oracle_info.dir, toBinaryString(*saved_hist));
-
   op->base_perceptron_output = prediction_score;
   uns8 pred = (prediction_score >= 0.0f) ? 1 : 0;
   return pred;
@@ -113,7 +93,7 @@ uns8 bp_perceptron_pred(Op* op) {
 void bp_perceptron_update(Op* op) {
   const uns   proc_id          = op->proc_id;
   const Addr  addr             = op->oracle_info.pred_addr;
-  const uns64 hist             = op->oracle_info.base_perceptron_global_hist;
+  const uns32 hist             = op->oracle_info.pred_global_hist;
   uns64       index            = BASE_PERCEPTRON_HASH(addr);
   auto&     perceptron_state   = perceptron_hist.at(proc_id).perceptron_state_all_cores[index];
   const uns8 actual_result     = op->oracle_info.dir;
@@ -132,19 +112,19 @@ void bp_perceptron_update(Op* op) {
 
   DEBUG(proc_id, "t: %d; calculated: %f; threshold: %f\n", t, base_perceptron_output, PERCEPTRON_THRESHOLD);
 
-  if((base_perceptron_output <= 0 && t <= 0) || (abs(base_perceptron_output) <= PERCEPTRON_THRESHOLD)) {
+  if(!(base_perceptron_output <= 0 && t <= 0) || (abs(base_perceptron_output) <= PERCEPTRON_THRESHOLD)) {
     for(int i = 0; i < BASE_HIST_LENGTH; ++i) {
-      int history_bit = ((hist >> i) & 0x1) ? 1 : -1;  // 1 -> +1, 0 -> -1
-      //DEBUG(proc_id, "== hist_bit: %d; hist: (%s)\n", history_bit, toBinaryString(hist));
+      int history_bit = ((hist >> (32 - i)) & 0x1) ? 1 : -1;  // 1 -> +1, 0 -> -1
+      DEBUG(proc_id, "== hist_bit: %d; hist: (%s)\n", history_bit, toBinaryString(hist));
       // Bias weight is just the weight.
       if (i == 0) {
         perceptron_state.weights[i] += t;
-        continue;
+      } else {
+	perceptron_state.weights[i] += history_bit * t;
       }
-      perceptron_state.weights[i] += history_bit * t;
-      if ((perceptron_state.weights[i] >= PERCEPTRON_THRESHOLD) || (perceptron_state.weights[i] <= -PERCEPTRON_THRESHOLD)) {
-        perceptron_state.weights[i] = PERCEPTRON_THRESHOLD;
-      }
+//      if ((perceptron_state.weights[i] >= PERCEPTRON_THRESHOLD) || (perceptron_state.weights[i] <= -PERCEPTRON_THRESHOLD)) {
+//        perceptron_state.weights[i] = PERCEPTRON_THRESHOLD;
+//      }
       DEBUG(proc_id, "perceptron_state.weight[%d]: %f", i, perceptron_state.weights[i]);
     }
   }
