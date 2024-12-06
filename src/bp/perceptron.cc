@@ -14,8 +14,6 @@ extern "C" {
 
 #define DEBUG(proc_id, args...) _DEBUG(proc_id, DEBUG_BP_DIR, ##args)
 #define INIT_BASE_VAL 0
-#define BASE_HIST_LENGTH 7
-#define BASE_PERCEPTRON_ENTRIES 512000
 #define BASE_PERCEPTRON_HASH(addr) (addr % BASE_PERCEPTRON_ENTRIES)
 #define PERCEPTRON_THRESHOLD (float)((1.93 * BASE_HIST_LENGTH) + 14)
 
@@ -74,10 +72,9 @@ uns8 bp_perceptron_pred(Op* op) {
   uns32       index            = BASE_PERCEPTRON_HASH(addr);
   const auto& perceptron_state = perceptron_hist.at(proc_id).perceptron_state_all_cores[index];
   float       prediction_score = 0.0f;
-  //int x_i;
 
   for(int i = 0; i < BASE_HIST_LENGTH; ++i) {
-    int history_bit = ((hist >> (32 - i)) & 0x1) ? 1 : -1;  // 1 -> +1, 0 -> -1
+    int history_bit = ((hist >> (33 - i)) & 0x1) ? 1 : -1;  // 1 -> +1, 0 -> -1
     // Bias weight is just the weight.
     if (i == 0) {
       prediction_score += perceptron_state.weights[i];
@@ -114,7 +111,7 @@ void bp_perceptron_update(Op* op) {
 
   if(!(base_perceptron_output <= 0 && t <= 0) || (abs(base_perceptron_output) <= PERCEPTRON_THRESHOLD)) {
     for(int i = 0; i < BASE_HIST_LENGTH; ++i) {
-      int history_bit = ((hist >> (32 - i)) & 0x1) ? 1 : -1;  // 1 -> +1, 0 -> -1
+      int history_bit = ((hist >> (33 - i)) & 0x1) ? 1 : -1;  // 1 -> +1, 0 -> -1
       DEBUG(proc_id, "== hist_bit: %d; hist: (%s)\n", history_bit, toBinaryString(hist));
       // Bias weight is just the weight.
       if (i == 0) {
