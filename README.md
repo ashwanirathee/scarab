@@ -16,6 +16,7 @@ Scarab is a cycle accurate simulator for state-of-the-art, high performance,
 multicore chips. Scarab's goal is to be highly accurate, while also being
 fast and easy to work with.
 
+## Perceptron-based branch predictor achieving higher accuracy with long histories and linear hardware scaling efficiency.
 ##### Simulator Features:
 * Accurate: Scarab is detailed cycle accurate uArchitecture model
 * Fast: 600 KIPS trace-driven, 100 KIPS exec-driven
