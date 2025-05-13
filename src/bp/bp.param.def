@@ -86,7 +86,7 @@ DEF_PARAM(  btb_off_path_writes       , BTB_OFF_PATH_WRITES       , Flag    , Fl
 DEF_PARAM(  enable_crs                , ENABLE_CRS                , Flag    , Flag       , TRUE       ,        )
 DEF_PARAM(  crs_entries               , CRS_ENTRIES               , uns     , uns        , 32         ,        )     
      // CRS_REALISTIC --- 0:off_path does not disturb on_path 1: next & tos scheme (use this if you want a realistic CRS) 
-     //                                                       2: pure stack scheme (doesn't work well, b/c of wrong path effects)
+     //                                                       2: pure stack scheme (doesnt work well, b/c of wrong path effects)
 DEF_PARAM(  crs_realistic             , CRS_REALISTIC             , uns     , uns        , 0          ,        )
      // Confidence Mechanism
 
@@ -132,6 +132,10 @@ DEF_PARAM(  loop_repeat_max           , LOOP_REPEAT_MAX            , uns     , u
 // branch misprediction information
 DEF_PARAM( knob_print_brinfo          , KNOB_PRINT_BRINFO          , Flag    , Flag       , FALSE      ,        )
 DEF_PARAM( br_mispred_file            , BR_MISPRED_FILE            , char *  , string     , NULL       ,	)
+
+DEF_PARAM(  base_hist_length           ,  BASE_HIST_LENGTH     , int     , int        , 8       ,        )
+DEF_PARAM(  base_perceptron_rows           ,  BASE_PERCEPTRON_ENTRIES     , int     , int        , 8192       ,        )
+DEF_PARAM(  base_perceptron_th           ,  BASE_PERCEPTRON_TH     , uns     , uns        , 0       ,        )
 
 ///////////////////////////////////////////////////////////////////////////
 // confidence estimator based on perceptron 
